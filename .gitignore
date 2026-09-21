@@ -1,0 +1,17 @@
+# ROS 2 / colcon generated files
+asv/build/
+asv/install/
+asv/log/
+
+# Python generated files
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Large mesh assets kept locally
+asv/src/asv_description/meshes/visual/*.obj
+asv/src/asv_description/meshes/visual/*.stl
+
+# Local editor and environment files
+.venv/
+*.swp

@@ -1,0 +1,234 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="tlu_asv">
+  <!--
+    ROS body convention: X forward, Y left / port, Z up.
+    Starter physical values must be replaced with measured/CAD values.
+  -->
+  <xacro:arg name="use_mesh" default="false"/>
+  <xacro:arg name="mesh_file" default="asv_visual.obj"/>
+  <xacro:arg name="mesh_scale" default="0.001"/>
+  <xacro:arg name="mesh_x" default="0.0"/>
+  <xacro:arg name="mesh_y" default="0.0"/>
+  <xacro:arg name="mesh_z" default="0.0"/>
+  <xacro:arg name="mesh_roll" default="0.0"/>
+  <xacro:arg name="mesh_pitch" default="0.0"/>
+  <!-- Fusion model is Y-long; rotate it so its long axis follows ROS X. -->
+  <xacro:arg name="mesh_yaw" default="1.57079632679"/>
+
+  <xacro:property name="mass" value="35.0"/>
+  <xacro:property name="pontoon_length" value="1.40"/>
+  <xacro:property name="pontoon_width" value="0.28"/>
+  <xacro:property name="pontoon_height" value="0.24"/>
+  <xacro:property name="pontoon_offset_y" value="0.48"/>
+  <xacro:property name="thruster_x" value="-0.38"/>
+  <xacro:property name="thruster_offset_y" value="0.29"/>
+  <xacro:property name="thruster_z" value="-0.22"/>
+
+  <material name="hull_red">
+    <color rgba="0.50 0.06 0.08 1.0"/>
+  </material>
+  <material name="frame_gray">
+    <color rgba="0.65 0.68 0.70 1.0"/>
+  </material>
+  <material name="thruster_dark">
+    <color rgba="0.08 0.09 0.10 1.0"/>
+  </material>
+
+  <!-- KDL expects the root link to have no inertia. -->
+  <link name="base_footprint"/>
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 0" rpy="0 0 0"/>
+  </joint>
+
+  <link name="base_link">
+    <inertial>
+      <origin xyz="0 0 -0.1" rpy="0 0 0"/>
+      <mass value="${mass}"/>
+      <inertia
+        ixx="5.0" ixy="0.0" ixz="0.0"
+        iyy="8.0" iyz="0.0" izz="12.0"/>
+    </inertial>
+
+    <!-- Stable primitive collision volumes; these also drive buoyancy. -->
+    <collision name="port_pontoon_collision">
+      <origin xyz="0 ${pontoon_offset_y} 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${pontoon_length} ${pontoon_width} ${pontoon_height}"/>
+      </geometry>
+    </collision>
+    <collision name="starboard_pontoon_collision">
+      <origin xyz="0 -${pontoon_offset_y} 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${pontoon_length} ${pontoon_width} ${pontoon_height}"/>
+      </geometry>
+    </collision>
+
+    <!-- A combined assembly STL exported from Fusion 360. -->
+    <xacro:if value="$(arg use_mesh)">
+      <visual name="fusion_assembly_visual">
+        <origin
+          xyz="$(arg mesh_x) $(arg mesh_y) $(arg mesh_z)"
+          rpy="$(arg mesh_roll) $(arg mesh_pitch) $(arg mesh_yaw)"/>
+        <geometry>
+          <mesh
+            filename="package://asv_description/meshes/visual/$(arg mesh_file)"
+            scale="$(arg mesh_scale) $(arg mesh_scale) $(arg mesh_scale)"/>
+        </geometry>
+      </visual>
+    </xacro:if>
+
+    <!-- Primitive preview lets Gazebo run before the STL is available. -->
+    <xacro:unless value="$(arg use_mesh)">
+      <visual name="port_pontoon_visual">
+        <origin xyz="0 ${pontoon_offset_y} 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${pontoon_length} ${pontoon_width} ${pontoon_height}"/>
+        </geometry>
+        <material name="hull_red"/>
+      </visual>
+      <visual name="starboard_pontoon_visual">
+        <origin xyz="0 -${pontoon_offset_y} 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="${pontoon_length} ${pontoon_width} ${pontoon_height}"/>
+        </geometry>
+        <material name="hull_red"/>
+      </visual>
+      <visual name="cross_beam_visual">
+        <origin xyz="0 0 0.22" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.70 1.10 0.08"/>
+        </geometry>
+        <material name="frame_gray"/>
+      </visual>
+      <visual name="electronics_box_visual">
+        <origin xyz="0 0 0.43" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.55 0.45 0.35"/>
+        </geometry>
+        <material name="frame_gray"/>
+      </visual>
+      <visual name="port_thruster_visual">
+        <origin xyz="-0.45 ${pontoon_offset_y} -0.28" rpy="0 1.57079632679 0"/>
+        <geometry>
+          <cylinder radius="0.12" length="0.12"/>
+        </geometry>
+        <material name="thruster_dark"/>
+      </visual>
+      <visual name="starboard_thruster_visual">
+        <origin xyz="-0.45 -${pontoon_offset_y} -0.28" rpy="0 1.57079632679 0"/>
+        <geometry>
+          <cylinder radius="0.12" length="0.12"/>
+        </geometry>
+        <material name="thruster_dark"/>
+      </visual>
+    </xacro:unless>
+  </link>
+
+  <link name="imu_link"/>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="imu_link"/>
+    <origin xyz="0 0 0.46" rpy="0 0 0"/>
+  </joint>
+
+  <link name="gps_link"/>
+  <joint name="gps_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="gps_link"/>
+    <origin xyz="0 0 0.82" rpy="0 0 0"/>
+  </joint>
+
+  <link name="lidar_link"/>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="0.35 0 0.52" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Mass-light propeller links give Gazebo local X axes for thrust. -->
+  <link name="port_thruster_link">
+    <inertial>
+      <mass value="0.01"/>
+      <inertia ixx="0.00001" ixy="0" ixz="0"
+               iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+  </link>
+  <joint name="port_thruster_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="port_thruster_link"/>
+    <origin xyz="${thruster_x} ${thruster_offset_y} ${thruster_z}"
+            rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="100" velocity="500"/>
+    <dynamics damping="0.01" friction="0.0"/>
+  </joint>
+
+  <link name="starboard_thruster_link">
+    <inertial>
+      <mass value="0.01"/>
+      <inertia ixx="0.00001" ixy="0" ixz="0"
+               iyy="0.00001" iyz="0" izz="0.00001"/>
+    </inertial>
+  </link>
+  <joint name="starboard_thruster_joint" type="continuous">
+    <parent link="base_link"/>
+    <child link="starboard_thruster_link"/>
+    <origin xyz="${thruster_x} -${thruster_offset_y} ${thruster_z}"
+            rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit effort="100" velocity="500"/>
+    <dynamics damping="0.01" friction="0.0"/>
+  </joint>
+
+  <gazebo reference="base_link">
+    <mu1>0.05</mu1>
+    <mu2>0.05</mu2>
+  </gazebo>
+
+  <gazebo>
+    <plugin filename="gz-sim-thruster-system"
+            name="gz::sim::systems::Thruster">
+      <namespace>asv</namespace>
+      <joint_name>port_thruster_joint</joint_name>
+      <use_angvel_cmd>false</use_angvel_cmd>
+      <fluid_density>1025</fluid_density>
+      <propeller_diameter>0.10</propeller_diameter>
+      <thrust_coefficient>0.10</thrust_coefficient>
+      <min_thrust_cmd>-15</min_thrust_cmd>
+      <max_thrust_cmd>25</max_thrust_cmd>
+      <deadband>0.05</deadband>
+    </plugin>
+    <plugin filename="gz-sim-thruster-system"
+            name="gz::sim::systems::Thruster">
+      <namespace>asv</namespace>
+      <joint_name>starboard_thruster_joint</joint_name>
+      <use_angvel_cmd>false</use_angvel_cmd>
+      <fluid_density>1025</fluid_density>
+      <propeller_diameter>0.10</propeller_diameter>
+      <thrust_coefficient>0.10</thrust_coefficient>
+      <min_thrust_cmd>-15</min_thrust_cmd>
+      <max_thrust_cmd>25</max_thrust_cmd>
+      <deadband>0.05</deadband>
+    </plugin>
+  </gazebo>
+
+  <!-- Damping only; added-mass terms wait for physical calibration. -->
+  <gazebo>
+    <plugin filename="gz-sim-hydrodynamics-system"
+            name="gz::sim::systems::Hydrodynamics">
+      <link_name>base_footprint</link_name>
+      <xU>-5.0</xU>
+      <xUabsU>-8.0</xUabsU>
+      <yV>-15.0</yV>
+      <yVabsV>-30.0</yVabsV>
+      <zW>-20.0</zW>
+      <zWabsW>-40.0</zWabsW>
+      <kP>-4.0</kP>
+      <mQ>-8.0</mQ>
+      <nR>-5.0</nR>
+      <nRabsR>-8.0</nRabsR>
+    </plugin>
+  </gazebo>
+</robot>
